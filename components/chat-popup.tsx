@@ -3,15 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { MessageCircle, X, Send, Search } from "lucide-react"
 import { useChat } from "@ai-sdk/react"
-import type { Facility } from "@/lib/types"
-
-const SUGGESTED_PROMPTS = [
-  "Which 5 states need urgent maternal health investment?",
-  "Where should we open the next verified maternity clinic?",
-  "Which districts in Bihar have the worst coverage?",
-  "What type of support does Maharashtra need most?",
-  "Compare Kerala and UP gap rates",
-]
+import type { Facility, NGOInputs } from "@/lib/types"
 
 const FACILITY_PROMPTS = [
   "Is this facility a reliable partner for referrals?",
@@ -19,11 +11,40 @@ const FACILITY_PROMPTS = [
   "Are there verified alternatives we could partner with nearby?",
 ]
 
-interface ChatPopupProps {
-  selectedFacility?: Facility | null
+const formatBudget = (budget: string) => {
+  const budgetMap: Record<string, string> = {
+    "under-50l": "Under ₹50 lakhs",
+    "50l-1cr": "₹50L – ₹1 crore",
+    "1cr-5cr": "₹1 – 5 crore",
+    "above-5cr": "Above ₹5 crore",
+  }
+  return budgetMap[budget] || budget
 }
 
-export function ChatPopup({ selectedFacility }: ChatPopupProps) {
+const formatTimeline = (timeline: string) => {
+  const timelineMap: Record<string, string> = {
+    "under-6m": "Under 6 months",
+    "6m-12m": "6 – 12 months",
+    "1y-3y": "1 – 3 years",
+  }
+  return timelineMap[timeline] || timeline
+}
+
+const formatGoal = (goal: string) => {
+  const goalMap: Record<string, string> = {
+    "reduce-mortality": "Reduce maternal mortality",
+    "increase-coverage": "Increase verified facility coverage",
+    "build-referrals": "Build referral networks",
+  }
+  return goalMap[goal] || goal
+}
+
+interface ChatPopupProps {
+  selectedFacility?: Facility | null
+  ngoInputs?: NGOInputs | null
+}
+
+export function ChatPopup({ selectedFacility, ngoInputs }: ChatPopupProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -42,7 +63,21 @@ export function ChatPopup({ selectedFacility }: ChatPopupProps) {
         phone: selectedFacility.phone,
         has_emergency_ob: selectedFacility.has_emergency_ob,
       } : null,
+      ngoInputs: ngoInputs ? {
+        states: ngoInputs.states,
+        budget: ngoInputs.budget,
+        interventions: ngoInputs.interventions,
+        timeline: ngoInputs.timeline,
+        goal: ngoInputs.goal,
+      } : null,
     },
+    initialMessages: ngoInputs ? [
+      {
+        id: "initial",
+        role: "assistant",
+        content: `Based on your inputs, I've analyzed the maternal healthcare landscape across ${ngoInputs.states.join(", ")}.\n\n**Your Profile:**\n- Budget: ${formatBudget(ngoInputs.budget)}\n- Interventions: ${ngoInputs.interventions.join(", ")}\n- Timeline: ${formatTimeline(ngoInputs.timeline)}\n- Goal: ${formatGoal(ngoInputs.goal)}\n\nI'm ready to help you identify the highest-impact investment opportunities. What would you like to explore first?`,
+      },
+    ] : [],
     onResponse: () => {
       setIsSearching(false)
     },
@@ -149,21 +184,27 @@ export function ChatPopup({ selectedFacility }: ChatPopupProps) {
                       ))}
                     </div>
                   </>
-                ) : (
+                ) : ngoInputs ? (
                   <>
-                    <p className="text-sm text-gray-500 mb-3">How can I help you?</p>
+                    <p className="text-sm text-gray-500 mb-3">Explore your intervention plan:</p>
                     <div className="flex flex-col gap-2">
-                      {SUGGESTED_PROMPTS.map((prompt) => (
+                      {[
+                        `Which facilities in ${ngoInputs.states[0]} are best for ${ngoInputs.interventions[0]}?`,
+                        `Where should we prioritize ${ngoInputs.interventions.join(" and ")}?`,
+                        `What's the fastest path to ${formatGoal(ngoInputs.goal).toLowerCase()}?`,
+                      ].map((prompt) => (
                         <button
                           key={prompt}
                           onClick={() => handleSuggestedPrompt(prompt)}
-                          className="px-3 py-2 text-xs bg-gray-100 hover:bg-gray-200 rounded-full text-gray-700 transition-colors"
+                          className="px-3 py-2 text-xs bg-[#639922]/10 hover:bg-[#639922]/20 rounded-full text-[#639922] transition-colors text-left"
                         >
                           {prompt}
                         </button>
                       ))}
                     </div>
                   </>
+                ) : (
+                  <p className="text-sm text-gray-500">How can I help you?</p>
                 )}
               </div>
             )}

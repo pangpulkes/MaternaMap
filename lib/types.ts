@@ -21,3 +21,11 @@ export interface StateData {
   latitude: number
   longitude: number
 }
+
+export interface NGOInputs {
+  states: string[]
+  budget: string
+  interventions: string[]
+  timeline: string
+  goal: string
+}

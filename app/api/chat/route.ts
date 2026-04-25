@@ -136,10 +136,16 @@ async function searchTavily(query: string): Promise<string> {
 
 export async function POST(req: Request) {
   try {
-    const { messages, selectedFacility } = await req.json()
+    const { messages, selectedFacility, ngoInputs } = await req.json()
 
     const facilities = await fetchFacilities()
-    const stats = computeStats(facilities)
+    
+    // Filter facilities to NGO's selected states if provided
+    const relevantFacilities = ngoInputs?.states?.length > 0
+      ? facilities.filter((f) => ngoInputs.states.includes(f.state))
+      : facilities
+    
+    const stats = computeStats(relevantFacilities)
 
     let facilityContext = ""
     if (selectedFacility) {
@@ -157,7 +163,40 @@ CURRENTLY SELECTED FACILITY:
 When the user asks generic questions like "Is this trustworthy?" or "What are the concerns?", answer about THIS facility specifically. Use the web_search tool to find more information about this facility if needed.`
     }
 
+    // Build NGO context if available
+    let ngoContext = ""
+    if (ngoInputs) {
+      const budgetMap: Record<string, string> = {
+        "under-50l": "Under ₹50 lakhs",
+        "50l-1cr": "₹50L – ₹1 crore",
+        "1cr-5cr": "₹1 – 5 crore",
+        "above-5cr": "Above ₹5 crore",
+      }
+      const timelineMap: Record<string, string> = {
+        "under-6m": "Under 6 months",
+        "6m-12m": "6 – 12 months",
+        "1y-3y": "1 – 3 years",
+      }
+      const goalMap: Record<string, string> = {
+        "reduce-mortality": "Reduce maternal mortality",
+        "increase-coverage": "Increase verified facility coverage",
+        "build-referrals": "Build referral networks",
+      }
+
+      ngoContext = `
+
+NGO PLANNER PROFILE (tailor all recommendations to these constraints):
+- Operating States: ${ngoInputs.states.join(", ")}
+- Budget: ${budgetMap[ngoInputs.budget] || ngoInputs.budget}
+- Fundable Interventions: ${ngoInputs.interventions.join(", ")}
+- Timeline: ${timelineMap[ngoInputs.timeline] || ngoInputs.timeline}
+- Primary Goal: ${goalMap[ngoInputs.goal] || ngoInputs.goal}
+
+IMPORTANT: All recommendations should be filtered to their operating states and feasible within their budget and timeline. Prioritize interventions they can actually fund.`
+    }
+
     const systemPrompt = `You are a Resource Planning Agent helping NGO planners and public health officials make data-driven decisions about maternal healthcare investments in India. You have access to live audit data on ${stats.total} facilities.
+${ngoContext}
 
 LIVE DATA SUMMARY:
 - Total Facilities Audited: ${stats.total}
@@ -191,9 +230,9 @@ GUIDELINES:
 - Always show phone numbers clearly when mentioning specific facilities for follow-up
 - Format phone numbers so they can be tapped to call
 
-FACILITY DATA:
-${JSON.stringify(facilities.slice(0, 50), null, 2)}
-${facilities.length > 50 ? `\n... and ${facilities.length - 50} more facilities` : ""}`
+FACILITY DATA (filtered to operating states):
+${JSON.stringify(relevantFacilities.slice(0, 50), null, 2)}
+${relevantFacilities.length > 50 ? `\n... and ${relevantFacilities.length - 50} more facilities` : ""}`
 
     const result = streamText({
       model: groq("llama-3.3-70b-versatile"),
