@@ -1,15 +1,19 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { MapContainer, TileLayer, CircleMarker, Circle, useMap, Tooltip } from "react-leaflet"
+import { MapContainer, TileLayer, CircleMarker, GeoJSON, useMap } from "react-leaflet"
 import { ArrowLeft, Map, Layers } from "lucide-react"
 import type { Facility, StateData } from "@/lib/types"
+import type { Feature, FeatureCollection, Geometry } from "geojson"
+import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 
 // Default map center and zoom for India
 const DEFAULT_CENTER: [number, number] = [20.5937, 78.9629]
 const DEFAULT_ZOOM = 5
 const SELECTED_ZOOM = 14
+
+const INDIA_GEOJSON_URL = "https://raw.githubusercontent.com/geohacker/india/master/state/india_telengana.geojson"
 
 type MapViewMode = "heatmap" | "facilities"
 
@@ -20,6 +24,52 @@ interface FacilityMapProps {
   onResetMap?: () => void
   initialCenter?: { lat: number; lng: number; zoom: number } | null
   stateData?: StateData[]
+}
+
+// State name mapping for matching GeoJSON names to our data
+const STATE_NAME_MAP: Record<string, string> = {
+  "Andhra Pradesh": "Andhra Pradesh",
+  "Arunachal Pradesh": "Arunachal Pradesh",
+  "Assam": "Assam",
+  "Bihar": "Bihar",
+  "Chhattisgarh": "Chhattisgarh",
+  "Goa": "Goa",
+  "Gujarat": "Gujarat",
+  "Haryana": "Haryana",
+  "Himachal Pradesh": "Himachal Pradesh",
+  "Jharkhand": "Jharkhand",
+  "Karnataka": "Karnataka",
+  "Kerala": "Kerala",
+  "Madhya Pradesh": "Madhya Pradesh",
+  "Maharashtra": "Maharashtra",
+  "Manipur": "Manipur",
+  "Meghalaya": "Meghalaya",
+  "Mizoram": "Mizoram",
+  "Nagaland": "Nagaland",
+  "Odisha": "Odisha",
+  "Orissa": "Odisha",
+  "Punjab": "Punjab",
+  "Rajasthan": "Rajasthan",
+  "Sikkim": "Sikkim",
+  "Tamil Nadu": "Tamil Nadu",
+  "Telangana": "Telangana",
+  "Tripura": "Tripura",
+  "Uttar Pradesh": "Uttar Pradesh",
+  "Uttarakhand": "Uttarakhand",
+  "Uttaranchal": "Uttarakhand",
+  "West Bengal": "West Bengal",
+  "Andaman and Nicobar Islands": "Andaman and Nicobar Islands",
+  "Chandigarh": "Chandigarh",
+  "Dadra and Nagar Haveli": "Dadra and Nagar Haveli",
+  "Daman and Diu": "Daman and Diu",
+  "Delhi": "Delhi",
+  "NCT of Delhi": "Delhi",
+  "Jammu and Kashmir": "Jammu and Kashmir",
+  "Jammu & Kashmir": "Jammu and Kashmir",
+  "Ladakh": "Ladakh",
+  "Lakshadweep": "Lakshadweep",
+  "Puducherry": "Puducherry",
+  "Pondicherry": "Puducherry",
 }
 
 function MapUpdater({ 
@@ -38,7 +88,6 @@ function MapUpdater({
   const initialCenterApplied = useRef(false)
 
   useEffect(() => {
-    // Apply initial center on first mount if provided
     if (initialCenter && !initialCenterApplied.current) {
       map.flyTo([initialCenter.lat, initialCenter.lng], initialCenter.zoom, {
         duration: 0.5,
@@ -74,14 +123,6 @@ function getHeatmapColor(gapRate: number): string {
   return "#22c55e" // green
 }
 
-// Get heatmap fill opacity based on gap rate
-function getHeatmapOpacity(gapRate: number): number {
-  if (gapRate > 0.9) return 0.6
-  if (gapRate > 0.7) return 0.5
-  if (gapRate > 0.5) return 0.4
-  return 0.3
-}
-
 export function FacilityMap({ 
   facilities, 
   selectedFacility, 
@@ -93,6 +134,25 @@ export function FacilityMap({
   const [shouldReset, setShouldReset] = useState(false)
   const [mapViewMode, setMapViewMode] = useState<MapViewMode>("heatmap")
   const [showGaps, setShowGaps] = useState(false)
+  const [geoJsonData, setGeoJsonData] = useState<FeatureCollection | null>(null)
+  const [geoJsonKey, setGeoJsonKey] = useState(0)
+
+  // Fetch GeoJSON data
+  useEffect(() => {
+    fetch(INDIA_GEOJSON_URL)
+      .then((res) => res.json())
+      .then((data) => {
+        setGeoJsonData(data)
+      })
+      .catch((err) => {
+        console.error("Failed to fetch India GeoJSON:", err)
+      })
+  }, [])
+
+  // Update GeoJSON key when stateData changes to force re-render
+  useEffect(() => {
+    setGeoJsonKey((prev) => prev + 1)
+  }, [stateData])
 
   const getColor = (score: number) => {
     if (score > 0.7) return "#639922"
@@ -109,6 +169,91 @@ export function FacilityMap({
   const visibleFacilities = showGaps 
     ? facilities 
     : facilities.filter((f) => f.trust_score >= 0.4)
+
+  // Create a lookup map for state data
+  const stateDataMap = new Map<string, StateData>()
+  stateData.forEach((s) => {
+    stateDataMap.set(s.state.toLowerCase(), s)
+  })
+
+  // Style function for GeoJSON
+  const getStateStyle = (feature: Feature<Geometry> | undefined) => {
+    if (!feature || !feature.properties) {
+      return {
+        fillColor: "#cccccc",
+        weight: 1,
+        opacity: 0.8,
+        color: "#666666",
+        fillOpacity: 0.3,
+      }
+    }
+
+    const stateName = feature.properties.NAME_1 || feature.properties.name || feature.properties.ST_NM || ""
+    const normalizedName = STATE_NAME_MAP[stateName] || stateName
+    const state = stateDataMap.get(normalizedName.toLowerCase())
+
+    if (!state) {
+      return {
+        fillColor: "#cccccc",
+        weight: 1,
+        opacity: 0.5,
+        color: "#999999",
+        fillOpacity: 0.2,
+      }
+    }
+
+    const color = getHeatmapColor(state.gap_rate)
+    return {
+      fillColor: color,
+      weight: 2,
+      opacity: 1,
+      color: color,
+      fillOpacity: 0.6,
+    }
+  }
+
+  // Event handlers for GeoJSON features
+  const onEachFeature = (feature: Feature<Geometry>, layer: L.Layer) => {
+    if (!feature.properties) return
+
+    const stateName = feature.properties.NAME_1 || feature.properties.name || feature.properties.ST_NM || ""
+    const normalizedName = STATE_NAME_MAP[stateName] || stateName
+    const state = stateDataMap.get(normalizedName.toLowerCase())
+
+    if (state) {
+      layer.bindTooltip(
+        `<div class="text-center">
+          <p class="font-semibold text-sm">${state.state}</p>
+          <p class="text-xs text-gray-600">Gap Rate: ${Math.round(state.gap_rate * 100)}%</p>
+          <p class="text-xs text-gray-500">${state.total_facilities} facilities</p>
+        </div>`,
+        { direction: "top", offset: [0, -10], opacity: 1 }
+      )
+    }
+
+    // Highlight on hover
+    layer.on({
+      mouseover: (e) => {
+        const target = e.target
+        target.setStyle({
+          weight: 3,
+          fillOpacity: 0.8,
+        })
+        target.bringToFront()
+      },
+      mouseout: (e) => {
+        const target = e.target
+        if (state) {
+          const color = getHeatmapColor(state.gap_rate)
+          target.setStyle({
+            weight: 2,
+            fillOpacity: 0.6,
+            color: color,
+          })
+        }
+      },
+    })
+  }
 
   return (
     <div className="relative w-full h-full">
@@ -176,19 +321,19 @@ export function FacilityMap({
               <p className="text-[10px] font-medium text-gray-500 mb-1.5">Gap Rate</p>
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-[#dc2626]" />
+                  <span className="w-3 h-3 rounded-sm bg-[#dc2626]" />
                   <span className="text-[10px] text-gray-600">{">"}90%</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-[#f97316]" />
+                  <span className="w-3 h-3 rounded-sm bg-[#f97316]" />
                   <span className="text-[10px] text-gray-600">70-90%</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-[#eab308]" />
+                  <span className="w-3 h-3 rounded-sm bg-[#eab308]" />
                   <span className="text-[10px] text-gray-600">50-70%</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-[#22c55e]" />
+                  <span className="w-3 h-3 rounded-sm bg-[#22c55e]" />
                   <span className="text-[10px] text-gray-600">{"<"}50%</span>
                 </div>
               </div>
@@ -215,29 +360,15 @@ export function FacilityMap({
           initialCenter={initialCenter}
         />
 
-        {/* Heatmap view - state circles */}
-        {mapViewMode === "heatmap" && stateData.map((state) => (
-          <Circle
-            key={state.state}
-            center={[state.latitude, state.longitude]}
-            radius={120000} // ~120km radius for visibility
-            pathOptions={{
-              fillColor: getHeatmapColor(state.gap_rate),
-              fillOpacity: getHeatmapOpacity(state.gap_rate),
-              color: getHeatmapColor(state.gap_rate),
-              weight: 2,
-              opacity: 0.8,
-            }}
-          >
-            <Tooltip direction="top" offset={[0, -10]} opacity={1} permanent={false}>
-              <div className="text-center">
-                <p className="font-semibold text-sm">{state.state}</p>
-                <p className="text-xs text-gray-600">Gap Rate: {Math.round(state.gap_rate * 100)}%</p>
-                <p className="text-xs text-gray-500">{state.total_facilities} facilities</p>
-              </div>
-            </Tooltip>
-          </Circle>
-        ))}
+        {/* Heatmap view - GeoJSON state polygons */}
+        {mapViewMode === "heatmap" && geoJsonData && (
+          <GeoJSON
+            key={geoJsonKey}
+            data={geoJsonData}
+            style={getStateStyle}
+            onEachFeature={onEachFeature}
+          />
+        )}
 
         {/* Facilities view - individual dots */}
         {mapViewMode === "facilities" && visibleFacilities.map((facility) => {
