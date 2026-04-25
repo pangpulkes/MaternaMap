@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { X, Phone, AlertTriangle, CheckCircle, XCircle, ThumbsUp, ThumbsDown } from "lucide-react"
+import { X, Phone, AlertTriangle, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Navigation } from "lucide-react"
 import type { Facility } from "@/lib/types"
 
 interface BottomSheetProps {
@@ -120,7 +120,7 @@ export function BottomSheet({ facility, onClose, userRatings = {}, onRatingChang
             </button>
           </div>
 
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
             {facility.has_emergency_ob ? (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#639922]/10 text-[#639922] text-xs font-medium">
                 <CheckCircle className="w-3.5 h-3.5" />
@@ -141,6 +141,15 @@ export function BottomSheet({ facility, onClose, userRatings = {}, onRatingChang
                 Call
               </a>
             )}
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${facility.latitude},${facility.longitude}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#639922] text-white text-xs font-medium hover:bg-[#537a1c] transition-colors"
+            >
+              <Navigation className="w-3.5 h-3.5" />
+              Get Directions
+            </a>
           </div>
 
           <div className="mb-4">

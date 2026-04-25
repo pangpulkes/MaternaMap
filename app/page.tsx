@@ -82,6 +82,7 @@ export default function Home() {
           facilities={filteredFacilities}
           selectedFacility={selectedFacility}
           onSelectFacility={setSelectedFacility}
+          onResetMap={() => setSelectedFacility(null)}
         />
       </div>
       <BottomSheet
