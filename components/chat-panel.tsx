@@ -17,7 +17,6 @@ interface ChatPanelProps {
   onSuggestedPrompt: (text: string) => void
   isLoading: boolean
   isSearching: boolean
-  onDownloadBrief: () => void
 
 }
 
@@ -36,7 +35,6 @@ export function ChatPanel({
   onSuggestedPrompt,
   isLoading,
   isSearching,
-  onDownloadBrief,
 }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
