@@ -99,12 +99,15 @@ export function ChatPanel({
             {message.role === "assistant" &&
               message.id !== "initial" &&
               !isLoading && (
-                <button
-                  onClick={onDownloadBrief}
-                  className="mt-1 text-xs px-3 py-1.5 bg-[#1a2e1a] text-white rounded-lg hover:bg-[#2a4a2a] transition-colors inline-flex items-center gap-1.5 w-fit"
-                >
-                  ↓ Download Intervention Brief
-                </button>
+                <div className="flex justify-start mt-1">
+                  <button
+                    onClick={onDownloadBrief}
+                    className="text-xs px-3 py-1.5 bg-[#1a2e1a] text-white rounded-lg hover:bg-[#2a4a2a] transition-colors"
+                  >
+                    ↓ Download Intervention Brief
+                  </button>
+                </div>
+              )}
               )}
           </div>
         ))}
