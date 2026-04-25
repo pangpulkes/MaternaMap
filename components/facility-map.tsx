@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { MapContainer, TileLayer, CircleMarker, GeoJSON, useMap } from "react-leaflet"
-import { Map, Layers } from "lucide-react"
+import { Map as MapIcon, Layers } from "lucide-react"
 import type { Facility, StateData } from "@/lib/types"
 import type { Feature, FeatureCollection, Geometry } from "geojson"
 import L from "leaflet"
@@ -280,7 +280,7 @@ export function FacilityMap({
                   : "bg-white text-gray-700 hover:bg-gray-50"
               }`}
             >
-              <Map className="w-3.5 h-3.5" />
+              <MapIcon className="w-3.5 h-3.5" />
               Facilities
             </button>
           </div>
