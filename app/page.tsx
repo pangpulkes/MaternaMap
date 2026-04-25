@@ -126,6 +126,7 @@ export default function Home() {
               onSelectFacility={setSelectedFacility}
               onResetMap={() => setSelectedFacility(null)}
               initialCenter={mapCenter}
+              stateData={stateData}
             />
           </div>
           <BottomSheet
