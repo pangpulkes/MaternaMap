@@ -35,6 +35,17 @@ const DATA_QUALITY_TAGS = [
   "Other",
 ]
 
+// Convert camelCase or snake_case to human readable format
+const formatLabel = (text: string): string => {
+  return text
+    // Insert space before capital letters (camelCase)
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    // Replace underscores with spaces
+    .replace(/_/g, " ")
+    // Capitalize first letter of each word
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
 export function BottomSheet({ facility, onClose, userRatings = {}, onRatingChange }: BottomSheetProps) {
   if (!facility) return null
 
@@ -154,7 +165,7 @@ export function BottomSheet({ facility, onClose, userRatings = {}, onRatingChang
                     key={i}
                     className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 text-xs"
                   >
-                    {item}
+                    {formatLabel(item)}
                   </span>
                 ))}
               </div>
@@ -173,7 +184,7 @@ export function BottomSheet({ facility, onClose, userRatings = {}, onRatingChang
                     key={i}
                     className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-xs"
                   >
-                    {flag}
+                    {formatLabel(flag)}
                   </span>
                 ))}
               </div>
