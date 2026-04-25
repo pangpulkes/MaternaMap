@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { MapContainer, TileLayer, CircleMarker, GeoJSON, useMap } from "react-leaflet"
-import { ArrowLeft, Map, Layers } from "lucide-react"
+import { Map, Layers } from "lucide-react"
 import type { Facility, StateData } from "@/lib/types"
 import type { Feature, FeatureCollection, Geometry } from "geojson"
 import L from "leaflet"
@@ -258,22 +258,7 @@ export function FacilityMap({
   return (
     <div className="relative w-full h-full">
       {/* Top controls */}
-      <div className="absolute top-4 left-4 right-4 z-[1000] flex items-start justify-between gap-2">
-        {/* Left side - Back button */}
-        <div>
-          {selectedFacility && (
-            <button
-              onClick={handleResetMap}
-              className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to full map
-            </button>
-          )}
-        </div>
-
-        {/* Right side - View toggles */}
-        <div className="flex flex-col gap-2 items-end">
+      <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2 items-end">
           {/* Heatmap / Facilities toggle */}
           <div className="flex bg-white rounded-lg shadow-lg overflow-hidden">
             <button
@@ -339,7 +324,6 @@ export function FacilityMap({
               </div>
             </div>
           )}
-        </div>
       </div>
 
       <MapContainer

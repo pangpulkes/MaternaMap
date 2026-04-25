@@ -8,7 +8,7 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: 'Maternal Emergency Desert Map',
-  description: 'Find verified maternal emergency facilities across India with trust scores and contact information',
+  description: 'AI-powered resource allocation for NGO planners - audit data on 1,180 maternal health facilities across India',
   generator: 'v0.app',
   icons: {
     icon: [
@@ -35,7 +35,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className="bg-white">
+    <html lang="en" className="bg-gray-100">
       <body className="font-sans antialiased overflow-hidden">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
