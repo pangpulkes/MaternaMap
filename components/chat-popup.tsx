@@ -22,10 +22,11 @@ export function ChatPopup() {
   const renderMessageContent = (content: string) => {
     // Convert phone numbers to clickable links
     const phoneRegex = /(\+91[-\s]?[\d\s-]{10,})/g
+    const testRegex = /^\+91[-\s]?[\d\s-]{10,}$/
     const parts = content.split(phoneRegex)
 
     return parts.map((part, index) => {
-      if (phoneRegex.test(part)) {
+      if (testRegex.test(part)) {
         const cleanPhone = part.replace(/[\s-]/g, "")
         return (
           <a
