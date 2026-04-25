@@ -1,15 +1,35 @@
 "use client"
 
-import { X, Phone, AlertTriangle, CheckCircle, XCircle } from "lucide-react"
+import { useState } from "react"
+import { X, Phone, AlertTriangle, CheckCircle, XCircle, ThumbsUp, ThumbsDown } from "lucide-react"
 import type { Facility } from "@/lib/types"
 
 interface BottomSheetProps {
   facility: Facility | null
   onClose: () => void
+  userRatings?: Record<string, { recommend: boolean; tags: string[] }>
+  onRatingChange?: (facilityId: string, recommend: boolean, tags: string[]) => void
 }
 
-export function BottomSheet({ facility, onClose }: BottomSheetProps) {
+const RATING_TAGS = [
+  "Good staff",
+  "Clean facility",
+  "Quick service",
+  "Affordable",
+  "Poor hygiene",
+  "Long wait",
+  "Lack of equipment",
+  "Rude staff",
+]
+
+export function BottomSheet({ facility, onClose, userRatings = {}, onRatingChange }: BottomSheetProps) {
   if (!facility) return null
+
+  const [showTags, setShowTags] = useState(false)
+  const facilityId = `${facility.name}-${facility.city}`
+  const currentRating = userRatings[facilityId]
+  const recommend = currentRating?.recommend ?? null
+  const selectedTags = currentRating?.tags ?? []
 
   const getTrustColor = (score: number) => {
     if (score > 0.7) return "bg-[#639922]"
@@ -17,7 +37,43 @@ export function BottomSheet({ facility, onClose }: BottomSheetProps) {
     return "bg-red-500"
   }
 
-  const trustPercent = Math.round(facility.trust_score * 100)
+  // Calculate adjusted trust score based on user feedback
+  const getAdjustedTrustScore = () => {
+    let adjusted = facility.trust_score
+    if (recommend === true) {
+      // Positive feedback increases score by up to 10%
+      adjusted = Math.min(1, adjusted + 0.1)
+    } else if (recommend === false) {
+      // Negative feedback decreases score by up to 15%
+      adjusted = Math.max(0, adjusted - 0.15)
+    }
+    return adjusted
+  }
+
+  const displayScore = recommend !== null ? getAdjustedTrustScore() : facility.trust_score
+  const trustPercent = Math.round(displayScore * 100)
+
+  const handleRecommendation = (isRecommend: boolean) => {
+    if (onRatingChange) {
+      if (recommend === isRecommend) {
+        // Toggle off if clicking same option
+        onRatingChange(facilityId, null as any, [])
+        setShowTags(false)
+      } else {
+        onRatingChange(facilityId, isRecommend, selectedTags)
+        setShowTags(true)
+      }
+    }
+  }
+
+  const handleTagToggle = (tag: string) => {
+    if (onRatingChange) {
+      const newTags = selectedTags.includes(tag)
+        ? selectedTags.filter((t) => t !== tag)
+        : [...selectedTags, tag]
+      onRatingChange(facilityId, recommend as boolean, newTags)
+    }
+  }
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-[1000] animate-in slide-in-from-bottom duration-300">
@@ -110,7 +166,60 @@ export function BottomSheet({ facility, onClose }: BottomSheetProps) {
             </div>
           )}
 
-          <p className="text-xs text-gray-500 italic">{facility.reasoning}</p>
+          <p className="text-xs text-gray-500 italic mb-4">{facility.reasoning}</p>
+
+          <div className="border-t pt-4">
+            <p className="text-xs font-medium text-gray-500 mb-2.5">Would you recommend this facility?</p>
+            <div className="flex gap-2 mb-3">
+              <button
+                onClick={() => handleRecommendation(true)}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-all ${
+                  recommend === true
+                    ? "bg-[#639922] text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                <ThumbsUp className="w-4 h-4" />
+                <span className="text-sm font-medium">Yes</span>
+              </button>
+              <button
+                onClick={() => handleRecommendation(false)}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-all ${
+                  recommend === false
+                    ? "bg-red-500 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                <ThumbsDown className="w-4 h-4" />
+                <span className="text-sm font-medium">No</span>
+              </button>
+            </div>
+
+            {recommend !== null && (
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-xs font-medium text-gray-600 mb-2">
+                  {recommend ? "What was good?" : "What could improve?"}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {RATING_TAGS.map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => handleTagToggle(tag)}
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                        selectedTags.includes(tag)
+                          ? recommend
+                            ? "bg-[#639922] text-white"
+                            : "bg-red-500 text-white"
+                          : "bg-white border border-gray-200 text-gray-700 hover:border-gray-300"
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

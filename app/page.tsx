@@ -22,6 +22,7 @@ export default function Home() {
   const [selectedState, setSelectedState] = useState("")
   const [selectedFacility, setSelectedFacility] = useState<Facility | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [userRatings, setUserRatings] = useState<Record<string, { recommend: boolean; tags: string[] }>>({})
 
   useEffect(() => {
     fetch("/results.json")
@@ -50,6 +51,13 @@ export default function Home() {
     }
   }, [selectedState, facilities])
 
+  const handleRatingChange = (facilityId: string, recommend: boolean, tags: string[]) => {
+    setUserRatings((prev) => ({
+      ...prev,
+      [facilityId]: { recommend, tags },
+    }))
+  }
+
   if (isLoading) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-gray-100">
@@ -72,7 +80,12 @@ export default function Home() {
           onSelectFacility={setSelectedFacility}
         />
       </div>
-      <BottomSheet facility={selectedFacility} onClose={() => setSelectedFacility(null)} />
+      <BottomSheet
+        facility={selectedFacility}
+        onClose={() => setSelectedFacility(null)}
+        userRatings={userRatings}
+        onRatingChange={handleRatingChange}
+      />
       <ChatPopup />
     </div>
   )
