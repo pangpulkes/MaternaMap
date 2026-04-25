@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Download, MapPin, Phone, AlertTriangle, CheckCircle, ChevronRight, Users, Building2, Mountain, Flag, Navigation } from "lucide-react"
 import type { Facility, StateData } from "@/lib/types"
 
@@ -34,6 +34,13 @@ export function OutputPanel({
     selectedFacility ? "details" : "states"
   )
   const [sortBy, setSortBy] = useState<"distance" | "gap_rate">("distance")
+
+  // Auto-switch to details tab when a facility is selected
+  useEffect(() => {
+    if (selectedFacility) {
+      setActiveTab("details")
+    }
+  }, [selectedFacility])
 
   // Sort state data based on selected sort method
   const sortedStateData = [...stateData].sort((a, b) => {
