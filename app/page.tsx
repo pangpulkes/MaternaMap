@@ -205,6 +205,11 @@ export default function Home() {
     return lines.join("\n")
   }
 
+  const handleSelectState = (state: StateData) => {
+    setExtractedStates([state.state])
+    setMapCenter({ lat: state.latitude, lng: state.longitude, zoom: 7 })
+  }
+
   const handleSharePlan = async () => {
     const shareData = {
       title: "Maternal Healthcare Intervention Plan",
@@ -322,6 +327,8 @@ export default function Home() {
           onSelectFacility={setSelectedFacility}
           onDownloadBrief={handleDownloadBrief}
           extractedStates={extractedStates}
+          stateData={stateData}
+          onSelectState={handleSelectState}
         />
       </div>
     </div>

@@ -18,6 +18,7 @@ export interface StateData {
   verified: number
   gaps: number
   gap_rate: number
+  avg_nearest_verified_km: number
   latitude: number
   longitude: number
 }

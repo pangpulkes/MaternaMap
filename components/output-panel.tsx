@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Download, Share2, MapPin, Phone, AlertTriangle, CheckCircle, ChevronRight, Users, Building2 } from "lucide-react"
-import type { Facility } from "@/lib/types"
+import { Download, MapPin, Phone, AlertTriangle, CheckCircle, ChevronRight, Users, Building2, ArrowUpDown, Mountain } from "lucide-react"
+import type { Facility, StateData } from "@/lib/types"
 
 interface Recommendation {
   facility: Facility
@@ -17,6 +17,8 @@ interface OutputPanelProps {
   onSelectFacility: (facility: Facility) => void
   onDownloadBrief: () => void
   extractedStates: string[]
+  stateData: StateData[]
+  onSelectState?: (state: StateData) => void
 }
 
 export function OutputPanel({
@@ -25,10 +27,24 @@ export function OutputPanel({
   onSelectFacility,
   onDownloadBrief,
   extractedStates,
+  stateData,
+  onSelectState,
 }: OutputPanelProps) {
-  const [activeTab, setActiveTab] = useState<"recommendations" | "details">(
-    selectedFacility ? "details" : "recommendations"
+  const [activeTab, setActiveTab] = useState<"states" | "recommendations" | "details">(
+    selectedFacility ? "details" : "states"
   )
+  const [sortBy, setSortBy] = useState<"distance" | "gap_rate">("distance")
+
+  // Sort state data based on selected sort method
+  const sortedStateData = [...stateData].sort((a, b) => {
+    if (sortBy === "distance") {
+      return b.avg_nearest_verified_km - a.avg_nearest_verified_km
+    }
+    return b.gap_rate - a.gap_rate
+  })
+
+  // Geographic desert states (high gap rate + extreme distances)
+  const geographicDeserts = ["Assam", "Chhattisgarh"]
 
   const getTrustColor = (score: number) => {
     if (score > 0.7) return "text-[#639922]"
@@ -81,30 +97,145 @@ export function OutputPanel({
       {/* Tabs */}
       <div className="flex border-b border-gray-200 flex-shrink-0">
         <button
+          onClick={() => setActiveTab("states")}
+          className={`flex-1 px-2 py-2.5 text-xs font-medium transition-colors ${
+            activeTab === "states"
+              ? "text-[#639922] border-b-2 border-[#639922]"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Priority States
+        </button>
+        <button
           onClick={() => setActiveTab("recommendations")}
-          className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
+          className={`flex-1 px-2 py-2.5 text-xs font-medium transition-colors ${
             activeTab === "recommendations"
               ? "text-[#639922] border-b-2 border-[#639922]"
               : "text-gray-500 hover:text-gray-700"
           }`}
         >
-          Recommendations
+          Sites
         </button>
         <button
           onClick={() => setActiveTab("details")}
-          className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
+          className={`flex-1 px-2 py-2.5 text-xs font-medium transition-colors ${
             activeTab === "details"
               ? "text-[#639922] border-b-2 border-[#639922]"
               : "text-gray-500 hover:text-gray-700"
           }`}
         >
-          Facility Details
+          Details
         </button>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {activeTab === "recommendations" ? (
+        {activeTab === "states" ? (
+          <div className="p-4">
+            {/* Sort Toggle */}
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                Priority Ranking
+              </p>
+              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+                <button
+                  onClick={() => setSortBy("distance")}
+                  className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                    sortBy === "distance"
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  By Distance
+                </button>
+                <button
+                  onClick={() => setSortBy("gap_rate")}
+                  className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                    sortBy === "gap_rate"
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  By Gap Rate
+                </button>
+              </div>
+            </div>
+
+            {/* State Cards */}
+            <div className="space-y-2">
+              {sortedStateData.map((state, index) => {
+                const isGeographicDesert = geographicDeserts.includes(state.state)
+                const severityColor = state.gap_rate > 0.85
+                  ? "bg-red-500"
+                  : state.gap_rate > 0.75
+                  ? "bg-orange-500"
+                  : "bg-yellow-500"
+                const severityLabel = state.gap_rate > 0.85
+                  ? "CRITICAL"
+                  : state.gap_rate > 0.75
+                  ? "SEVERE"
+                  : "UNDERSERVED"
+
+                return (
+                  <button
+                    key={state.state}
+                    onClick={() => onSelectState?.(state)}
+                    className="w-full text-left p-3 rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all bg-white"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-gray-100 text-gray-600 text-xs font-bold flex items-center justify-center flex-shrink-0">
+                          {index + 1}
+                        </span>
+                        <div>
+                          <h4 className="font-medium text-sm text-gray-900">
+                            {state.state}
+                          </h4>
+                          <p className="text-xs text-gray-500">
+                            {state.total_facilities} facilities
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1 items-end">
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold text-white ${severityColor}`}>
+                          {severityLabel}
+                        </span>
+                        {isGeographicDesert && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-medium">
+                            <Mountain className="w-2.5 h-2.5" />
+                            Geographic Desert
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Distance metric */}
+                    <div className="mb-2 p-2 bg-gray-50 rounded-md">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-500">Avg. distance to verified care</span>
+                        <span className="font-bold text-gray-900">{state.avg_nearest_verified_km} km</span>
+                      </div>
+                    </div>
+
+                    {/* Gap rate bar */}
+                    <div>
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="text-gray-500">Gap rate</span>
+                        <span className="font-medium text-red-600">{Math.round(state.gap_rate * 100)}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-red-500 rounded-full"
+                          style={{ width: `${state.gap_rate * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ) : activeTab === "recommendations" ? (
           <div className="p-4">
             {recommendations.length === 0 ? (
               <div className="text-center py-8">
