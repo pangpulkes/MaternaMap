@@ -1,6 +1,7 @@
 "use client"
 
-import { ChevronDown } from "lucide-react"
+import { useState } from "react"
+import { Search, X } from "lucide-react"
 import type { Facility } from "@/lib/types"
 
 interface HeaderProps {
@@ -11,10 +12,28 @@ interface HeaderProps {
 
 export function Header({ facilities, selectedState, onStateChange }: HeaderProps) {
   const states = Array.from(new Set(facilities.map((f) => f.state))).sort()
+  const [searchInput, setSearchInput] = useState("")
+  const [showDropdown, setShowDropdown] = useState(false)
+
+  const filteredStates = states.filter((state) =>
+    state.toLowerCase().includes(searchInput.toLowerCase())
+  )
 
   const verified = facilities.filter((f) => f.trust_score > 0.7).length
   const uncertain = facilities.filter((f) => f.trust_score >= 0.4 && f.trust_score <= 0.7).length
   const gaps = facilities.filter((f) => f.trust_score < 0.4).length
+
+  const handleStateSelect = (state: string) => {
+    onStateChange(state)
+    setSearchInput("")
+    setShowDropdown(false)
+  }
+
+  const handleClearSearch = () => {
+    setSearchInput("")
+    onStateChange("")
+    setShowDropdown(false)
+  }
 
   return (
     <header className="bg-[#1a2e1a] text-white px-4 py-3 flex flex-col gap-2">
@@ -23,20 +42,52 @@ export function Header({ facilities, selectedState, onStateChange }: HeaderProps
           <h1 className="text-lg font-semibold leading-tight">Maternal Emergency Desert Map</h1>
           <p className="text-xs text-white/70">India · {facilities.length} facilities audited</p>
         </div>
-        <div className="relative">
-          <select
-            value={selectedState}
-            onChange={(e) => onStateChange(e.target.value)}
-            className="appearance-none bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-[#639922]"
-          >
-            <option value="">All States</option>
-            {states.map((state) => (
-              <option key={state} value={state} className="text-black">
-                {state}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" />
+        <div className="relative w-40">
+          <div className="flex items-center gap-1 bg-white/10 border border-white/20 rounded-lg px-3 py-1.5">
+            <Search className="w-4 h-4 text-white/60" />
+            <input
+              type="text"
+              placeholder="Search states..."
+              value={searchInput}
+              onChange={(e) => {
+                setSearchInput(e.target.value)
+                setShowDropdown(true)
+              }}
+              onFocus={() => setShowDropdown(true)}
+              className="bg-transparent flex-1 text-sm focus:outline-none placeholder-white/40"
+            />
+            {(searchInput || selectedState) && (
+              <button
+                onClick={handleClearSearch}
+                className="p-0.5 hover:bg-white/20 rounded"
+              >
+                <X className="w-3.5 h-3.5 text-white/60" />
+              </button>
+            )}
+          </div>
+          {showDropdown && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-[#0f1f0f] border border-white/20 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+              <button
+                onClick={() => handleStateSelect("")}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-white/10 transition ${
+                  !selectedState ? "bg-white/20 text-[#639922]" : "text-white"
+                }`}
+              >
+                All States
+              </button>
+              {filteredStates.map((state) => (
+                <button
+                  key={state}
+                  onClick={() => handleStateSelect(state)}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-white/10 transition ${
+                    selectedState === state ? "bg-white/20 text-[#639922]" : "text-white"
+                  }`}
+                >
+                  {state}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       <div className="flex gap-2 flex-wrap">
