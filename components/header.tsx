@@ -11,20 +11,33 @@ interface HeaderProps {
 }
 
 export function Header({ facilities, selectedState, onStateChange }: HeaderProps) {
-  const states = Array.from(new Set(facilities.map((f) => f.state))).sort()
   const [searchInput, setSearchInput] = useState("")
   const [showDropdown, setShowDropdown] = useState(false)
 
-  const filteredStates = states.filter((state) =>
-    state.toLowerCase().includes(searchInput.toLowerCase())
-  )
+  const getSearchResults = (query: string) => {
+    if (!query.trim()) return []
+    
+    const lowerQuery = query.toLowerCase()
+    
+    // Search across facility names, cities, and states
+    const matchedFacilities = facilities.filter((f) =>
+      f.name.toLowerCase().includes(lowerQuery) ||
+      f.city.toLowerCase().includes(lowerQuery) ||
+      f.state.toLowerCase().includes(lowerQuery)
+    )
+
+    return matchedFacilities
+  }
+
+  const searchResults = getSearchResults(searchInput)
 
   const verified = facilities.filter((f) => f.trust_score > 0.7).length
   const uncertain = facilities.filter((f) => f.trust_score >= 0.4 && f.trust_score <= 0.7).length
   const gaps = facilities.filter((f) => f.trust_score < 0.4).length
 
-  const handleStateSelect = (state: string) => {
-    onStateChange(state)
+  const handleFacilitySelect = (facility: Facility) => {
+    // Filter by the selected facility's state
+    onStateChange(facility.state)
     setSearchInput("")
     setShowDropdown(false)
   }
@@ -47,7 +60,7 @@ export function Header({ facilities, selectedState, onStateChange }: HeaderProps
             <Search className="w-4 h-4 text-white/60" />
             <input
               type="text"
-              placeholder="Search states..."
+              placeholder="Search by location..."
               value={searchInput}
               onChange={(e) => {
                 setSearchInput(e.target.value)
@@ -66,26 +79,32 @@ export function Header({ facilities, selectedState, onStateChange }: HeaderProps
             )}
           </div>
           {showDropdown && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-[#0f1f0f] border border-white/20 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
-              <button
-                onClick={() => handleStateSelect("")}
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-white/10 transition ${
-                  !selectedState ? "bg-white/20 text-[#639922]" : "text-white"
-                }`}
-              >
-                All States
-              </button>
-              {filteredStates.map((state) => (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-[#0f1f0f] border border-white/20 rounded-lg shadow-lg z-50 max-h-56 overflow-y-auto">
+              {searchInput.trim() === "" ? (
                 <button
-                  key={state}
-                  onClick={() => handleStateSelect(state)}
+                  onClick={() => handleFacilitySelect({ state: "" } as Facility)}
                   className={`w-full text-left px-3 py-2 text-sm hover:bg-white/10 transition ${
-                    selectedState === state ? "bg-white/20 text-[#639922]" : "text-white"
+                    !selectedState ? "bg-white/20 text-[#639922]" : "text-white"
                   }`}
                 >
-                  {state}
+                  All Facilities
                 </button>
-              ))}
+              ) : searchResults.length > 0 ? (
+                searchResults.slice(0, 8).map((facility) => (
+                  <button
+                    key={`${facility.name}-${facility.city}`}
+                    onClick={() => handleFacilitySelect(facility)}
+                    className="w-full text-left px-3 py-2.5 hover:bg-white/10 transition border-b border-white/5 last:border-b-0"
+                  >
+                    <div className="text-sm font-medium text-white">{facility.name}</div>
+                    <div className="text-xs text-white/60">{facility.city}, {facility.state}</div>
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-4 text-sm text-white/60 text-center">
+                  No facilities found
+                </div>
+              )}
             </div>
           )}
         </div>

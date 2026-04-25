@@ -39,6 +39,16 @@ export default function Home() {
   const filteredFacilities = selectedState
     ? facilities.filter((f) => f.state === selectedState)
     : facilities
+  
+  // When a facility is selected from search, also auto-select it in the map
+  useEffect(() => {
+    if (selectedState && facilities.length > 0) {
+      const facilitiesInState = facilities.filter((f) => f.state === selectedState)
+      if (facilitiesInState.length === 1) {
+        setSelectedFacility(facilitiesInState[0])
+      }
+    }
+  }, [selectedState, facilities])
 
   if (isLoading) {
     return (
