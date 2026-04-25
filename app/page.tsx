@@ -39,7 +39,7 @@ export default function Home() {
   const [isSearching, setIsSearching] = useState(false)
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number; zoom: number } | null>(null)
 
-  const { messages, input, setInput, handleSubmit: handleSubmitRaw, isLoading } = useChat({
+  const { messages, input, handleInputChange, handleSubmit: handleSubmitRaw, append, isLoading } = useChat({
     api: "/api/chat",
     body: {
       selectedFacility: selectedFacility ? {
@@ -163,6 +163,20 @@ export default function Home() {
     e.preventDefault()
     if (!input.trim() || isLoading) return
     handleSubmitRaw(e)
+    setExtractedFromInput(input)
+  }
+
+  const setExtractedFromInput = (value: string) => {
+    // Trigger state extraction immediately on submit
+    const allStates = stateData.map(s => s.state)
+    const lower = value.toLowerCase()
+    const found = allStates.filter(s => lower.includes(s.toLowerCase()))
+    if (found.length > 0) setExtractedStates(found)
+  }
+
+  // Used by ChatPanel to programmatically set input via suggested prompts
+  const appendMessage = (text: string) => {
+    append({ role: "user", content: text })
   }
 
   const handleDownloadBrief = () => {
@@ -300,8 +314,9 @@ export default function Home() {
           <ChatPanel
             messages={messages}
             input={input}
-            setInput={setInput}
+            handleInputChange={handleInputChange}
             onSubmit={onFormSubmit}
+            onSuggestedPrompt={appendMessage}
             isLoading={isLoading}
             isSearching={isSearching}
           />

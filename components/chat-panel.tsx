@@ -12,8 +12,9 @@ interface Message {
 interface ChatPanelProps {
   messages: Message[]
   input: string
-  setInput: (value: string) => void
+  handleInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void
+  onSuggestedPrompt: (text: string) => void
   isLoading: boolean
   isSearching: boolean
 }
@@ -32,8 +33,9 @@ const SUGGESTED_PROMPTS = [
 export function ChatPanel({
   messages,
   input,
-  setInput,
+  handleInputChange,
   onSubmit,
+  onSuggestedPrompt,
   isLoading,
   isSearching,
 }: ChatPanelProps) {
@@ -41,7 +43,7 @@ export function ChatPanel({
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleSuggestedPrompt = (prompt: string) => {
-    setInput(prompt)
+    onSuggestedPrompt(prompt)
     inputRef.current?.focus()
   }
 
@@ -153,7 +155,7 @@ export function ChatPanel({
             ref={inputRef}
             type="text"
             value={input ?? ""}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
             placeholder="Describe your organization..."
             className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#639922] focus:border-transparent bg-white"
           />
