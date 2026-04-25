@@ -19,6 +19,11 @@ export function ChatPopup() {
     setInput(prompt)
   }
 
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    handleSubmit(e)
+  }
+
   const renderMessageContent = (content: string) => {
     // Convert phone numbers to clickable links
     const phoneRegex = /(\+91[-\s]?[\d\s-]{10,})/g
@@ -116,14 +121,15 @@ export function ChatPopup() {
           </div>
 
           {/* Input */}
-          <form onSubmit={handleSubmit} className="p-3 border-t flex-shrink-0">
+          <form onSubmit={handleFormSubmit} className="p-3 border-t flex-shrink-0">
             <div className="flex gap-2">
               <input
                 type="text"
                 value={input ?? ""}
-                onChange={handleInputChange}
+                onChange={(e) => handleInputChange(e)}
                 placeholder="Ask a question..."
-                className="flex-1 px-3 py-2 text-sm border rounded-full focus:outline-none focus:ring-2 focus:ring-[#639922] focus:border-transparent"
+                autoFocus
+                className="flex-1 px-3 py-2 text-sm border rounded-full focus:outline-none focus:ring-2 focus:ring-[#639922] focus:border-transparent bg-white"
               />
               <button
                 type="submit"
