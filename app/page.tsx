@@ -308,8 +308,15 @@ export default function Home() {
             <FacilityMap
               facilities={filteredFacilities}
               selectedFacility={selectedFacility}
-              onSelectFacility={setSelectedFacility}
-              onResetMap={() => setSelectedFacility(null)}
+              onSelectFacility={(facility) => {
+                setSelectedFacility(facility)
+              }}
+              onSelectState={handleSelectState}
+              onResetMap={() => {
+                setSelectedFacility(null)
+                setExtractedStates([])
+                setMapCenter(null)
+              }}
               initialCenter={mapCenter}
               stateData={filteredStateData}
             />

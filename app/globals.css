@@ -133,6 +133,24 @@
   display: none;
 }
 
+/* Custom state tooltip styling */
+.leaflet-tooltip.state-tooltip {
+  background: white;
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 0;
+}
+
+.leaflet-tooltip.state-tooltip::before {
+  display: none;
+}
+
+/* Make GeoJSON paths have pointer cursor */
+.leaflet-interactive {
+  cursor: pointer;
+}
+
 /* Pulsing animation for selected map pin */
 @keyframes pulse-ring {
   0% {

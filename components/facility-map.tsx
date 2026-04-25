@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { MapContainer, TileLayer, CircleMarker, GeoJSON, useMap } from "react-leaflet"
-import { Map as MapIcon, Layers } from "lucide-react"
+import { useEffect, useRef, useState, useCallback } from "react"
+import { MapContainer, TileLayer, CircleMarker, GeoJSON, useMap, useMapEvents } from "react-leaflet"
+import { ArrowLeft, Layers } from "lucide-react"
 import type { Facility, StateData } from "@/lib/types"
 import type { Feature, FeatureCollection, Geometry } from "geojson"
 import L from "leaflet"
@@ -11,16 +11,17 @@ import "leaflet/dist/leaflet.css"
 // Default map center and zoom for India
 const DEFAULT_CENTER: [number, number] = [20.5937, 78.9629]
 const DEFAULT_ZOOM = 5
-const SELECTED_ZOOM = 14
+const FACILITY_ZOOM_THRESHOLD = 7
+const STATE_ZOOM = 7
+const FACILITY_ZOOM = 10
 
 const INDIA_GEOJSON_URL = "https://raw.githubusercontent.com/geohacker/india/master/state/india_telengana.geojson"
-
-type MapViewMode = "heatmap" | "facilities"
 
 interface FacilityMapProps {
   facilities: Facility[]
   selectedFacility: Facility | null
   onSelectFacility: (facility: Facility) => void
+  onSelectState?: (state: StateData) => void
   onResetMap?: () => void
   initialCenter?: { lat: number; lng: number; zoom: number } | null
   stateData?: StateData[]
@@ -72,49 +73,6 @@ const STATE_NAME_MAP: Record<string, string> = {
   "Pondicherry": "Puducherry",
 }
 
-function MapUpdater({ 
-  selectedFacility, 
-  shouldReset, 
-  onResetComplete,
-  initialCenter,
-}: { 
-  selectedFacility: Facility | null
-  shouldReset: boolean
-  onResetComplete: () => void
-  initialCenter?: { lat: number; lng: number; zoom: number } | null
-}) {
-  const map = useMap()
-  const prevSelectedRef = useRef<Facility | null>(null)
-  const initialCenterApplied = useRef(false)
-
-  useEffect(() => {
-    if (initialCenter && !initialCenterApplied.current) {
-      map.flyTo([initialCenter.lat, initialCenter.lng], initialCenter.zoom, {
-        duration: 0.5,
-      })
-      initialCenterApplied.current = true
-      return
-    }
-
-    if (shouldReset) {
-      map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, {
-        duration: 0.5,
-      })
-      onResetComplete()
-      return
-    }
-
-    if (selectedFacility && selectedFacility !== prevSelectedRef.current) {
-      map.flyTo([selectedFacility.latitude, selectedFacility.longitude], SELECTED_ZOOM, {
-        duration: 0.5,
-      })
-      prevSelectedRef.current = selectedFacility
-    }
-  }, [selectedFacility, shouldReset, map, onResetComplete, initialCenter])
-
-  return null
-}
-
 // Get heatmap color based on gap rate
 function getHeatmapColor(gapRate: number): string {
   if (gapRate > 0.9) return "#dc2626" // dark red
@@ -123,19 +81,87 @@ function getHeatmapColor(gapRate: number): string {
   return "#22c55e" // green
 }
 
+// Get facility dot color based on trust score
+function getFacilityColor(score: number): string {
+  if (score > 0.7) return "#639922" // green - verified
+  if (score >= 0.4) return "#f97316" // orange - uncertain
+  return "#ef4444" // red - gap
+}
+
+// Zoom level tracker component
+function ZoomTracker({ onZoomChange }: { onZoomChange: (zoom: number) => void }) {
+  const map = useMapEvents({
+    zoomend: () => {
+      onZoomChange(map.getZoom())
+    },
+  })
+  
+  useEffect(() => {
+    onZoomChange(map.getZoom())
+  }, [map, onZoomChange])
+  
+  return null
+}
+
+// Map controller component
+function MapController({ 
+  shouldReset, 
+  onResetComplete,
+  flyToState,
+  onFlyComplete,
+  selectedFacility,
+}: { 
+  shouldReset: boolean
+  onResetComplete: () => void
+  flyToState: { lat: number; lng: number; zoom: number } | null
+  onFlyComplete: () => void
+  selectedFacility: Facility | null
+}) {
+  const map = useMap()
+  const prevSelectedRef = useRef<Facility | null>(null)
+
+  useEffect(() => {
+    if (shouldReset) {
+      map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, { duration: 0.5 })
+      onResetComplete()
+      return
+    }
+
+    if (flyToState) {
+      map.flyTo([flyToState.lat, flyToState.lng], flyToState.zoom, { duration: 0.5 })
+      onFlyComplete()
+      return
+    }
+
+    if (selectedFacility && selectedFacility !== prevSelectedRef.current) {
+      map.flyTo([selectedFacility.latitude, selectedFacility.longitude], FACILITY_ZOOM, { duration: 0.5 })
+      prevSelectedRef.current = selectedFacility
+    }
+  }, [shouldReset, flyToState, selectedFacility, map, onResetComplete, onFlyComplete])
+
+  return null
+}
+
 export function FacilityMap({ 
   facilities, 
   selectedFacility, 
-  onSelectFacility, 
+  onSelectFacility,
+  onSelectState,
   onResetMap, 
   initialCenter,
   stateData = []
 }: FacilityMapProps) {
   const [shouldReset, setShouldReset] = useState(false)
-  const [mapViewMode, setMapViewMode] = useState<MapViewMode>("heatmap")
-  const [showGaps, setShowGaps] = useState(false)
+  const [currentZoom, setCurrentZoom] = useState(DEFAULT_ZOOM)
   const [geoJsonData, setGeoJsonData] = useState<FeatureCollection | null>(null)
   const [geoJsonKey, setGeoJsonKey] = useState(0)
+  const [selectedStateName, setSelectedStateName] = useState<string | null>(null)
+  const [flyToState, setFlyToState] = useState<{ lat: number; lng: number; zoom: number } | null>(null)
+  const geoJsonRef = useRef<L.GeoJSON | null>(null)
+
+  // Determine view mode based on zoom level
+  const showFacilities = currentZoom >= FACILITY_ZOOM_THRESHOLD
+  const showHeatmap = currentZoom < FACILITY_ZOOM_THRESHOLD
 
   // Fetch GeoJSON data
   useEffect(() => {
@@ -149,26 +175,27 @@ export function FacilityMap({
       })
   }, [])
 
-  // Update GeoJSON key when stateData changes to force re-render
+  // Update GeoJSON key when stateData or selectedStateName changes
   useEffect(() => {
     setGeoJsonKey((prev) => prev + 1)
-  }, [stateData])
+  }, [stateData, selectedStateName])
 
-  const getColor = (score: number) => {
-    if (score > 0.7) return "#639922"
-    if (score >= 0.4) return "#f97316"
-    return "#ef4444"
-  }
+  // Apply initial center
+  useEffect(() => {
+    if (initialCenter) {
+      setFlyToState(initialCenter)
+    }
+  }, [initialCenter])
 
   const handleResetMap = () => {
     setShouldReset(true)
+    setSelectedStateName(null)
     onResetMap?.()
   }
 
-  // Filter facilities based on showGaps toggle
-  const visibleFacilities = showGaps 
-    ? facilities 
-    : facilities.filter((f) => f.trust_score >= 0.4)
+  const handleZoomChange = useCallback((zoom: number) => {
+    setCurrentZoom(zoom)
+  }, [])
 
   // Create a lookup map for state data
   const stateDataMap = new Map<string, StateData>()
@@ -191,6 +218,7 @@ export function FacilityMap({
     const stateName = feature.properties.NAME_1 || feature.properties.name || feature.properties.ST_NM || ""
     const normalizedName = STATE_NAME_MAP[stateName] || stateName
     const state = stateDataMap.get(normalizedName.toLowerCase())
+    const isSelected = selectedStateName === normalizedName
 
     if (!state) {
       return {
@@ -205,10 +233,10 @@ export function FacilityMap({
     const color = getHeatmapColor(state.gap_rate)
     return {
       fillColor: color,
-      weight: 2,
+      weight: isSelected ? 4 : 2,
       opacity: 1,
-      color: color,
-      fillOpacity: 0.6,
+      color: isSelected ? "#1a2e1a" : color,
+      fillOpacity: isSelected ? 0.8 : 0.6,
     }
   }
 
@@ -220,111 +248,147 @@ export function FacilityMap({
     const normalizedName = STATE_NAME_MAP[stateName] || stateName
     const state = stateDataMap.get(normalizedName.toLowerCase())
 
+    // Set cursor to pointer
+    const pathLayer = layer as L.Path
+    pathLayer.getElement?.()?.style?.setProperty("cursor", "pointer")
+
     if (state) {
+      // Rich tooltip with all key metrics
       layer.bindTooltip(
-        `<div class="text-center">
-          <p class="font-semibold text-sm">${state.state}</p>
-          <p class="text-xs text-gray-600">Gap Rate: ${Math.round(state.gap_rate * 100)}%</p>
-          <p class="text-xs text-gray-500">${state.total_facilities} facilities</p>
+        `<div class="px-2 py-1.5">
+          <p class="font-semibold text-sm mb-1">${state.state}</p>
+          <div class="space-y-0.5 text-xs">
+            <p><span class="text-gray-500">Gap Rate:</span> <span class="font-medium text-red-600">${Math.round(state.gap_rate * 100)}%</span></p>
+            <p><span class="text-gray-500">Facilities:</span> <span class="font-medium">${state.total_facilities}</span></p>
+            <p><span class="text-gray-500">Verified:</span> <span class="font-medium text-green-600">${state.verified}</span></p>
+            <p><span class="text-gray-500">Avg. Distance:</span> <span class="font-medium">${state.avg_nearest_verified_km} km</span></p>
+          </div>
         </div>`,
-        { direction: "top", offset: [0, -10], opacity: 1 }
+        { 
+          direction: "top", 
+          offset: [0, -10], 
+          opacity: 1,
+          className: "state-tooltip"
+        }
       )
     }
 
-    // Highlight on hover
+    // Hover and click handlers
     layer.on({
       mouseover: (e) => {
         const target = e.target
         target.setStyle({
-          weight: 3,
+          weight: 4,
           fillOpacity: 0.8,
         })
         target.bringToFront()
       },
       mouseout: (e) => {
         const target = e.target
+        const isSelected = selectedStateName === normalizedName
         if (state) {
           const color = getHeatmapColor(state.gap_rate)
           target.setStyle({
-            weight: 2,
-            fillOpacity: 0.6,
-            color: color,
+            weight: isSelected ? 4 : 2,
+            fillOpacity: isSelected ? 0.8 : 0.6,
+            color: isSelected ? "#1a2e1a" : color,
           })
+        }
+      },
+      click: () => {
+        if (state) {
+          setSelectedStateName(normalizedName)
+          setFlyToState({ lat: state.latitude, lng: state.longitude, zoom: STATE_ZOOM })
+          onSelectState?.(state)
         }
       },
     })
   }
 
+  // Filter visible facilities when zoomed in
+  const visibleFacilities = selectedStateName
+    ? facilities.filter(f => f.state === selectedStateName)
+    : facilities
+
   return (
     <div className="relative w-full h-full">
-      {/* Top controls */}
+      {/* Reset button - always visible */}
+      <button
+        onClick={handleResetMap}
+        className="absolute top-4 left-4 z-[1000] flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back to India
+      </button>
+
+      {/* Top right controls */}
       <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2 items-end">
-          {/* Heatmap / Facilities toggle */}
-          <div className="flex bg-white rounded-lg shadow-lg overflow-hidden">
-            <button
-              onClick={() => setMapViewMode("heatmap")}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${
-                mapViewMode === "heatmap"
-                  ? "bg-[#1a2e1a] text-white"
-                  : "bg-white text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              Heatmap
-            </button>
-            <button
-              onClick={() => setMapViewMode("facilities")}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${
-                mapViewMode === "facilities"
-                  ? "bg-[#1a2e1a] text-white"
-                  : "bg-white text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <MapIcon className="w-3.5 h-3.5" />
-              Facilities
-            </button>
-          </div>
+        {/* View mode indicator */}
+        <div className="bg-white rounded-lg shadow-lg px-3 py-2 flex items-center gap-2">
+          <Layers className="w-3.5 h-3.5 text-gray-500" />
+          <span className="text-xs font-medium text-gray-700">
+            {showHeatmap ? "State Heatmap" : "Facility View"}
+          </span>
+        </div>
 
-          {/* Show gaps toggle - only in facilities mode */}
-          {mapViewMode === "facilities" && (
-            <button
-              onClick={() => setShowGaps(!showGaps)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg shadow-lg text-xs font-medium transition-colors ${
-                showGaps
-                  ? "bg-red-500 text-white"
-                  : "bg-white text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <span className={`w-2 h-2 rounded-full ${showGaps ? "bg-white" : "bg-red-500"}`} />
-              {showGaps ? "Showing gaps" : "Show gaps"}
-            </button>
-          )}
-
-          {/* Heatmap legend - only in heatmap mode */}
-          {mapViewMode === "heatmap" && (
-            <div className="bg-white rounded-lg shadow-lg p-2">
-              <p className="text-[10px] font-medium text-gray-500 mb-1.5">Gap Rate</p>
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-sm bg-[#dc2626]" />
-                  <span className="text-[10px] text-gray-600">{">"}90%</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-sm bg-[#f97316]" />
-                  <span className="text-[10px] text-gray-600">70-90%</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-sm bg-[#eab308]" />
-                  <span className="text-[10px] text-gray-600">50-70%</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-sm bg-[#22c55e]" />
-                  <span className="text-[10px] text-gray-600">{"<"}50%</span>
-                </div>
+        {/* Legend */}
+        {showHeatmap ? (
+          <div className="bg-white rounded-lg shadow-lg p-2">
+            <p className="text-[10px] font-medium text-gray-500 mb-1.5">Gap Rate</p>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-sm bg-[#dc2626]" />
+                <span className="text-[10px] text-gray-600">{">"}90%</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-sm bg-[#f97316]" />
+                <span className="text-[10px] text-gray-600">70-90%</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-sm bg-[#eab308]" />
+                <span className="text-[10px] text-gray-600">50-70%</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-sm bg-[#22c55e]" />
+                <span className="text-[10px] text-gray-600">{"<"}50%</span>
               </div>
             </div>
-          )}
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-lg p-2">
+            <p className="text-[10px] font-medium text-gray-500 mb-1.5">Trust Score</p>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-[#639922]" />
+                <span className="text-[10px] text-gray-600">Verified ({">"}70%)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-[#f97316]" />
+                <span className="text-[10px] text-gray-600">Uncertain (40-70%)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-[#ef4444]" />
+                <span className="text-[10px] text-gray-600">Gap ({"<"}40%)</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Zoom hint */}
+        <div className="bg-white/90 rounded-lg shadow px-2 py-1">
+          <p className="text-[10px] text-gray-500">
+            {showHeatmap ? "Zoom in to see facilities" : "Zoom out to see heatmap"}
+          </p>
+        </div>
       </div>
+
+      {/* Selected state indicator */}
+      {selectedStateName && (
+        <div className="absolute bottom-4 left-4 z-[1000] bg-[#1a2e1a] text-white rounded-lg shadow-lg px-4 py-2">
+          <p className="text-xs text-white/70">Viewing</p>
+          <p className="font-semibold">{selectedStateName}</p>
+        </div>
+      )}
 
       <MapContainer
         center={DEFAULT_CENTER}
@@ -332,47 +396,53 @@ export function FacilityMap({
         className="w-full h-full"
         zoomControl={false}
         attributionControl={false}
+        scrollWheelZoom={true}
       >
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         />
-        <MapUpdater 
-          selectedFacility={selectedFacility} 
+        
+        <ZoomTracker onZoomChange={handleZoomChange} />
+        
+        <MapController 
           shouldReset={shouldReset}
           onResetComplete={() => setShouldReset(false)}
-          initialCenter={initialCenter}
+          flyToState={flyToState}
+          onFlyComplete={() => setFlyToState(null)}
+          selectedFacility={selectedFacility}
         />
 
-        {/* Heatmap view - GeoJSON state polygons */}
-        {mapViewMode === "heatmap" && geoJsonData && (
+        {/* Heatmap view - GeoJSON state polygons (show when zoomed out) */}
+        {showHeatmap && geoJsonData && (
           <GeoJSON
             key={geoJsonKey}
+            ref={geoJsonRef}
             data={geoJsonData}
             style={getStateStyle}
             onEachFeature={onEachFeature}
           />
         )}
 
-        {/* Facilities view - individual dots */}
-        {mapViewMode === "facilities" && visibleFacilities.map((facility) => {
+        {/* Facilities view - individual dots (show when zoomed in) */}
+        {showFacilities && visibleFacilities.map((facility) => {
           const isSelected = selectedFacility?.name === facility.name && selectedFacility?.city === facility.city
           return (
             <CircleMarker
               key={`${facility.name}-${facility.latitude}-${facility.longitude}`}
               center={[facility.latitude, facility.longitude]}
-              radius={isSelected ? 14 : 8}
+              radius={isSelected ? 12 : 7}
               pathOptions={{
-                fillColor: getColor(facility.trust_score),
+                fillColor: getFacilityColor(facility.trust_score),
                 fillOpacity: 0.9,
-                color: isSelected ? "#639922" : getColor(facility.trust_score),
+                color: isSelected ? "#1a2e1a" : getFacilityColor(facility.trust_score),
                 weight: isSelected ? 3 : 1,
               }}
-              className={isSelected ? "selected-pin" : ""}
               eventHandlers={{
                 click: () => onSelectFacility(facility),
               }}
-            />
+            >
+            </CircleMarker>
           )
         })}
       </MapContainer>

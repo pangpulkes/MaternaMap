@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Download, MapPin, Phone, AlertTriangle, CheckCircle, ChevronRight, Users, Building2, ArrowUpDown, Mountain } from "lucide-react"
+import { Download, MapPin, Phone, AlertTriangle, CheckCircle, ChevronRight, Users, Building2, Mountain, Flag, Navigation } from "lucide-react"
 import type { Facility, StateData } from "@/lib/types"
 
 interface Recommendation {
@@ -411,6 +411,28 @@ export function OutputPanel({
                   </p>
                 </div>
 
+                {/* Nearest Verified Facility */}
+                {selectedFacility.trust_score < 0.7 && (
+                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Navigation className="w-3.5 h-3.5 text-green-600" />
+                      <p className="text-xs font-medium text-green-700">Nearest Verified Facility</p>
+                    </div>
+                    <p className="text-sm text-green-800 font-medium">~12 km away</p>
+                    <p className="text-xs text-green-600">Consider for referral network</p>
+                  </div>
+                )}
+
+                {/* Intervention Type (if applicable) */}
+                {selectedFacility.trust_score < 0.7 && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-1.5">Recommended Intervention</p>
+                    <p className="text-sm text-gray-700">
+                      {selectedFacility.has_emergency_ob ? "Capacity building & staff training" : "Emergency OB setup & equipment"}
+                    </p>
+                  </div>
+                )}
+
                 {/* Actions */}
                 <div className="pt-2 space-y-2">
                   <a
@@ -422,6 +444,12 @@ export function OutputPanel({
                     <MapPin className="w-4 h-4" />
                     Get Directions
                   </a>
+                  <button
+                    className="flex items-center justify-center gap-2 w-full py-2.5 bg-orange-100 text-orange-700 rounded-lg text-sm font-medium hover:bg-orange-200 transition-colors"
+                  >
+                    <Flag className="w-4 h-4" />
+                    Flag for Review
+                  </button>
                 </div>
               </div>
             )}
