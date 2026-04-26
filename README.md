@@ -2,66 +2,25 @@ MaternaMap
 AI-powered maternal emergency resource allocation for NGO planners in India
 
 What It Does
-MaternaMap audits 1,180 maternal health facilities across India using AI-powered trust scoring to identify which facilities genuinely have emergency obstetric capability — and which ones only claim to.
+MaternaMap audits 1,180 maternal health facilities across India using AI-powered trust scoring to identify which facilities genuinely have emergency obstetric capability and which ones only claim to.
 89% of facilities claiming emergency OB care in India cannot be verified. 495 facilities are more than 50km from any verified facility. 408 cities have zero verified maternal emergency coverage, including Delhi, Pune, and Bangalore.
 MaternaMap helps NGO program officers answer one question: where should we deploy our resources to save the most lives?
 
 How It Works
-Data Pipeline (Databricks)
+Data Pipeline runs on Databricks. 10,000 facility records are ingested from the VF Hackathon dataset. LLM extraction using Llama 3.3 70B via Databricks Foundation Models reads unstructured facility notes and extracts genuine emergency capability signals. A Trust Scorer assigns a 0-1 score based on evidence vs red flags. Haversine distance calculation identifies facilities more than 50, 100, and 200km from verified care. Outputs are map_data_enriched.json, state_planning.json, and upgradeable_facilities.json.
 
-10,000 facility records ingested from the VF Hackathon dataset
-LLM extraction (Llama 3.3 70B via Databricks Foundation Models) reads unstructured facility notes and extracts genuine emergency capability signals
-Trust Scorer assigns a 0–1 score based on evidence vs. red flags
-Haversine distance calculation identifies facilities more than 50/100/200km from verified care
-Outputs: map_data_enriched.json, state_planning.json, upgradeable_facilities.json
+The Resource Planning Agent is built with Next.js, OpenAI, and Tavily. NGO planners describe their organization, budget, and constraints in natural language. The agent fetches live facility intelligence from Databricks, uses Tavily web search to find real intervention costs and government co-funding schemes, and returns a structured intervention plan with specific named facilities, trust scores, intervention types, and budget allocation.
 
-Resource Planning Agent (Next.js + OpenAI + Tavily)
-
-NGO planners describe their organization, budget, and constraints in natural language
-Agent fetches live facility intelligence from Databricks
-Agent uses Tavily web search to find real intervention costs, government co-funding schemes, and recent facility news
-Agent returns a structured intervention plan with specific named facilities, trust scores, intervention types, and budget allocation
-All recommendations cite real data — no invented numbers
-
-Frontend (v0 + Vercel)
-
-Interactive heatmap of India colored by gap rate severity
-Zoom in to see individual facility dots colored by trust score
-Click any state to filter to regional facilities
-Click any facility for full trust score breakdown, evidence, red flags, and tap-to-call
-Get Directions opens Google Maps navigation directly
-
+The Frontend is built with v0 and deployed on Vercel. It includes an interactive heatmap of India colored by gap rate severity, individual facility dots colored by trust score when zoomed in, state filtering, facility detail panels with trust score breakdown and tap-to-call, and Google Maps directions integration.
 
 Key Findings
-MetricValueFacilities audited1,180Verified capable129 (11%)Confirmed gaps969 (89%)Cities with zero verified coverage408Facilities >50km from verified care495Facilities >100km from verified care268States with 100% gap rate35Avg distance to verified care in Assam300km
+Facilities audited: 1,180. Verified capable: 129 (11%). Confirmed gaps: 969 (89%). Cities with zero verified coverage: 408. Facilities more than 50km from verified care: 495. Facilities more than 100km from verified care: 268. States with 100% gap rate: 35. Average distance to verified care in Assam: 300km.
 
 Tech Stack
-LayerTechnologyData processingDatabricks Free Edition, Python, pandasLLM extractionDatabricks Foundation Models (Llama 3.3 70B)Agent reasoningOpenAI GPT-4o-miniWeb searchTavily APIFrontendNext.js, v0, React-LeafletHostingVercelData storageDatabricks Unity Catalog Volumes
+Data processing: Databricks Free Edition, Python, pandas. LLM extraction: Databricks Foundation Models Llama 3.3 70B. Agent reasoning: OpenAI GPT-4o-mini. Web search: Tavily API. Frontend: Next.js, v0, React-Leaflet. Hosting: Vercel. Data storage: Databricks Unity Catalog Volumes.
 
 Architecture
-10,000 facility records
-        ↓
-Databricks LLM extraction pipeline
-        ↓
-Trust scoring + distance calculation
-        ↓
-Enriched JSON outputs → Databricks Volume
-        ↓
-Next.js API routes fetch live data
-        ↓
-OpenAI agent reasons over data
-        ↓
-Tavily supplements with web intelligence
-        ↓
-NGO planner receives intervention brief
+10,000 facility records flow into the Databricks LLM extraction pipeline, then through trust scoring and distance calculation, producing enriched JSON outputs stored in Databricks Volumes. Next.js API routes fetch this live data. The OpenAI agent reasons over the data while Tavily supplements with web intelligence. The NGO planner receives a structured intervention brief.
 
 Running Locally
-bashgit clone https://github.com/yourusername/maternamap
-cd maternamap
-pnpm install
-Create .env.local:
-DATABRICKS_HOST=your_host
-DATABRICKS_TOKEN=your_token
-OPENAI_API_KEY=your_key
-TAVILY_API_KEY=your_key
-bashpnpm dev
+Clone the repo and run pnpm install. Create a .env.local file with DATABRICKS_HOST, DATABRICKS_TOKEN, OPENAI_API_KEY, and TAVILY_API_KEY set to your values. Then run pnpm dev.
