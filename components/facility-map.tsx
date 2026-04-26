@@ -338,19 +338,19 @@ export function FacilityMap({
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded-sm bg-[#dc2626]" />
-                <span className="text-[10px] text-gray-600">{">"}90%</span>
+                <span className="text-[10px] text-gray-600">{">"}85% Critical</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded-sm bg-[#f97316]" />
-                <span className="text-[10px] text-gray-600">70-90%</span>
+                <span className="text-[10px] text-gray-600">75-85% Severe</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded-sm bg-[#eab308]" />
-                <span className="text-[10px] text-gray-600">50-70%</span>
+                <span className="text-[10px] text-gray-600">50-75% Serious</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded-sm bg-[#22c55e]" />
-                <span className="text-[10px] text-gray-600">{"<"}50%</span>
+                <span className="text-[10px] text-gray-600">{"<"}50% Moderate</span>
               </div>
             </div>
           </div>
